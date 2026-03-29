@@ -8,6 +8,7 @@ import { CheckCircle2, Circle, Clock, AlertTriangle, CalendarDays, ExternalLink,
 import Link from 'next/link';
 import { format, differenceInDays } from "date-fns";
 import { DashboardCalendar } from "@/components/DashboardCalendar";
+import { DailyStreaks } from "@/components/DailyStreaks";
 import { getSpacedRepetitionGuide } from "@/lib/retentionUtils";
 
 export default function Dashboard() {
@@ -212,10 +213,236 @@ export default function Dashboard() {
         </section>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      {/* TOP SECTION: TASKS & REMINDERS */}
+      <div className="space-y-6 mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            Tasks for {selectedDateStr === today ? "Today" : format(new Date(selectedDateStr), "MMMM d, yyyy")}
+          </h2>
+        </div>
 
-        {/* LEFT COLUMN: CALENDAR */}
-        <div className="xl:col-span-1 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          {/* Revisions Column */}
+          <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-3">
+                <CalendarDays className="w-5 h-5 text-blue-400" />
+                <span>Revisions</span>
+              </h2>
+              <span className="bg-blue-500/10 text-blue-400 text-sm font-bold px-3 py-1 rounded-full">{selectedDateRevisions.length} Tasks</span>
+            </div>
+
+            <div className="space-y-4">
+              {selectedDateRevisions.length === 0 ? (
+                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>No revisions scheduled!</p>
+                </div>
+              ) : (
+                selectedDateRevisions.map((rev, idx) => (
+                  <div key={`rev-${idx}`} className="group/item flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700/50 hover:border-gray-400 dark:border-gray-600 p-5 rounded-2xl transition-all duration-300">
+                    <div>
+                      <h3 className={`text-lg font-semibold flex items-center gap-2 ${rev.completed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-100'}`}>
+                        {rev.topic?.name}
+                        {rev.isCARevision && (
+                          <Link href="/ca-tracker" className={`${rev.completed ? 'text-gray-400 dark:text-gray-500' : 'text-blue-400 hover:text-blue-300'}`} title="Go to CA Tracker">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </h3>
+                      <p className="text-sm text-blue-400 mt-1 font-medium bg-blue-500/10 inline-block px-2 py-0.5 rounded-lg">
+                        Rev {rev.revision} of {rev.totalRevs}
+                      </p>
+                      {!rev.isCARevision && (
+                        <p className="text-[11px] text-blue-500/80 dark:text-blue-400/80 mt-1.5 flex items-center gap-1 font-medium bg-white dark:bg-gray-800 p-1.5 rounded-md border border-blue-500/10 shadow-sm leading-tight">
+                          {rev.label ? `Day ${rev.revision}: ${rev.label}` : getSpacedRepetitionGuide(rev.revision)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!rev.completed) {
+                          if (rev.isCARevision && rev.subjectId && rev.revisionId) handleCompleteCARevision(rev.subjectId, rev.revisionId);
+                          else handleComplete(rev.topic, rev.dueDate);
+                        }
+                      }}
+                      className={`transition-colors ${rev.completed ? 'text-green-500 cursor-default' : 'text-gray-500 dark:text-gray-400 hover:text-green-400 focus:text-green-500'}`}
+                      disabled={rev.completed}
+                    >
+                      {rev.completed ? <CheckCircle2 className="w-7 h-7" /> : <Circle className="w-7 h-7 group-hover/item:scale-110 transition-transform" />}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Reminders Column */}
+          <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8 relative overflow-hidden flex flex-col">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-3">
+                <Clock className="w-5 h-5 text-purple-400" />
+                <span>Reminders</span>
+              </h2>
+
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 shrink-0">
+                <button
+                  onClick={() => setShowAllReminders(true)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${showAllReminders ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setShowAllReminders(false)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${!showAllReminders ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                >
+                  Selected
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {showAllReminders ? (
+                allReminders.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                    <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                    <p>No active reminders!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Today */}
+                    {groupedReminders.today.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></span>
+                          Today
+                        </h3>
+                        {groupedReminders.today.map(topic => (
+                          <div key={topic.id} className="group/rem flex items-center justify-between bg-gray-100 dark:bg-gray-800/80 hover:bg-gray-100 dark:bg-gray-800 border border-purple-900/30 hover:border-purple-500/30 p-4 rounded-2xl transition-all duration-300">
+                            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                              {topic.name || topic.topic?.name}
+                              {topic.isCAReminder && (
+                                <Link href="/ca-tracker" className="text-pink-400 hover:text-pink-300" title="Go to CA Tracker">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </Link>
+                              )}
+                            </h3>
+                            <button
+                              onClick={() => {
+                                if (topic.isCAReminder && topic.subjectId && topic.reminderId) handleCompleteCAReminder(topic.subjectId, topic.reminderId);
+                                else if (topic.topic) handleComplete(topic.topic, topic.topic.reminderDate!);
+                              }}
+                              className="text-gray-500 dark:text-gray-400 hover:text-green-400 transition-colors"
+                            >
+                              <Circle className="w-6 h-6 hover:scale-110 transition-transform" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tomorrow */}
+                    {groupedReminders.tomorrow.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-800/50">
+                          Tomorrow
+                        </h3>
+                        {groupedReminders.tomorrow.map(topic => (
+                          <div key={topic.id} className="flex items-center justify-between bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/80 p-4 rounded-2xl">
+                            <div className="flex flex-col">
+                              <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                                {topic.name || topic.topic?.name}
+                                {topic.isCAReminder && (
+                                  <Link href="/ca-tracker" className="text-pink-400/80 hover:text-pink-300" title="Go to CA Tracker">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </Link>
+                                )}
+                              </h3>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upcoming */}
+                    {groupedReminders.future.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-800/50">
+                          Upcoming
+                        </h3>
+                        {groupedReminders.future.map(topic => (
+                          <div key={topic.id} className="flex items-center justify-between bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800/50 p-4 rounded-xl">
+                            <div className="flex flex-col">
+                              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                {topic.name || topic.topic?.name}
+                                {topic.isCAReminder && (
+                                  <Link href="/ca-tracker" className="text-pink-400/60 hover:text-pink-300" title="Go to CA Tracker">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </Link>
+                                )}
+                              </h3>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+                                <span>{format(new Date(topic.dueDate), 'MMM d, yyyy')}</span>
+                                <span className="text-gray-700">•</span>
+                                <span className="text-gray-600">In {topic.daysAway} days</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : (
+                selectedDateReminders.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                    <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                    <p>No reminders!</p>
+                  </div>
+                ) : (
+                  selectedDateReminders.map(topic => (
+                    <div key={topic.id} className="group/rem flex items-center justify-between bg-gray-100 dark:bg-gray-800/80 border border-purple-900/30 hover:border-purple-500/30 p-4 rounded-2xl transition-all duration-300">
+                      <h3 className={`text-base font-semibold flex items-center gap-2 ${topic.completed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-100'}`}>
+                        {topic.name || topic.topic?.name}
+                        {topic.isCAReminder && (
+                          <Link href="/ca-tracker" className={`${topic.completed ? 'text-gray-400' : 'text-pink-400 hover:text-pink-300'}`} title="Go to CA Tracker">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          if (!topic.completed) {
+                            if (topic.isCAReminder && topic.subjectId && topic.reminderId) handleCompleteCAReminder(topic.subjectId, topic.reminderId);
+                            else if (topic.topic) handleComplete(topic.topic, topic.topic.reminderDate!);
+                          }
+                        }}
+                        className={`transition-colors ${topic.completed ? 'text-green-500 cursor-default' : 'text-gray-500 dark:text-gray-400 hover:text-green-400'}`}
+                        disabled={topic.completed}
+                      >
+                        {topic.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6 group-hover/item:scale-110 transition-transform" />}
+                      </button>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* STREAKS SECTION */}
+      <div className="mb-8">
+        <DailyStreaks />
+      </div>
+
+      {/* BOTTOM SECTION: CALENDAR, UPCOMING, STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="col-span-1">
           <DashboardCalendar
             onSelectDate={(date) => {
               setSelectedDateStr(date);
@@ -224,7 +451,9 @@ export default function Dashboard() {
             selectedDate={selectedDateStr}
             itemsMap={itemsMap}
           />
+        </div>
 
+        <div className="col-span-1 space-y-8">
           {/* Upcoming Revisions (Compact) */}
           {upcomingRevisions.length > 0 && (
             <section className="bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/80 rounded-3xl p-6 relative overflow-hidden">
@@ -264,7 +493,9 @@ export default function Dashboard() {
               </div>
             </section>
           )}
+        </div>
 
+        <div className="col-span-1">
           {/* Retention Stats Box */}
           <section className="bg-gradient-to-br from-indigo-50 dark:from-indigo-900/20 to-purple-50 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-3xl p-6 relative overflow-hidden">
             <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -282,233 +513,7 @@ export default function Dashboard() {
             </ul>
             <p className="text-[10px] mt-4 text-indigo-600/60 dark:text-indigo-300/60 font-semibold uppercase tracking-wider text-center">Revise to reset the curve!</p>
           </section>
-
         </div>
-
-        {/* RIGHT COLUMN: REVISIONS & REMINDERS FOR SELECTED DATE */}
-        <div className="xl:col-span-2 space-y-8">
-
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              Tasks for {selectedDateStr === today ? "Today" : format(new Date(selectedDateStr), "MMMM d, yyyy")}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-            {/* Revisions Column */}
-            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8 relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-3">
-                  <CalendarDays className="w-5 h-5 text-blue-400" />
-                  <span>Revisions</span>
-                </h2>
-                <span className="bg-blue-500/10 text-blue-400 text-sm font-bold px-3 py-1 rounded-full">{selectedDateRevisions.length} Tasks</span>
-              </div>
-
-              <div className="space-y-4">
-                {selectedDateRevisions.length === 0 ? (
-                  <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                    <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p>No revisions scheduled!</p>
-                  </div>
-                ) : (
-                  selectedDateRevisions.map((rev, idx) => (
-                    <div key={`rev-${idx}`} className="group/item flex items-center justify-between bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700/50 hover:border-gray-400 dark:border-gray-600 p-5 rounded-2xl transition-all duration-300">
-                      <div>
-                        <h3 className={`text-lg font-semibold flex items-center gap-2 ${rev.completed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-100'}`}>
-                          {rev.topic?.name}
-                          {rev.isCARevision && (
-                            <Link href="/ca-tracker" className={`${rev.completed ? 'text-gray-400 dark:text-gray-500' : 'text-blue-400 hover:text-blue-300'}`} title="Go to CA Tracker">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Link>
-                          )}
-                        </h3>
-                        <p className="text-sm text-blue-400 mt-1 font-medium bg-blue-500/10 inline-block px-2 py-0.5 rounded-lg">
-                          Rev {rev.revision} of {rev.totalRevs}
-                        </p>
-                        {!rev.isCARevision && (
-                          <p className="text-[11px] text-blue-500/80 dark:text-blue-400/80 mt-1.5 flex items-center gap-1 font-medium bg-white dark:bg-gray-800 p-1.5 rounded-md border border-blue-500/10 shadow-sm leading-tight">
-                            {rev.label ? `Day ${rev.revision}: ${rev.label}` : getSpacedRepetitionGuide(rev.revision)}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (!rev.completed) {
-                            if (rev.isCARevision && rev.subjectId && rev.revisionId) handleCompleteCARevision(rev.subjectId, rev.revisionId);
-                            else handleComplete(rev.topic, rev.dueDate);
-                          }
-                        }}
-                        className={`transition-colors ${rev.completed ? 'text-green-500 cursor-default' : 'text-gray-500 dark:text-gray-400 hover:text-green-400 focus:text-green-500'}`}
-                        disabled={rev.completed}
-                      >
-                        {rev.completed ? <CheckCircle2 className="w-7 h-7" /> : <Circle className="w-7 h-7 group-hover/item:scale-110 transition-transform" />}
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            {/* Reminders Column */}
-            <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8 relative overflow-hidden flex flex-col">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-3">
-                  <Clock className="w-5 h-5 text-purple-400" />
-                  <span>Reminders</span>
-                </h2>
-
-                <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 shrink-0">
-                  <button
-                    onClick={() => setShowAllReminders(true)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${showAllReminders ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setShowAllReminders(false)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${!showAllReminders ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                  >
-                    Selected
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                {showAllReminders ? (
-                  allReminders.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                      <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p>No active reminders!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Today */}
-                      {groupedReminders.today.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></span>
-                            Today
-                          </h3>
-                          {groupedReminders.today.map(topic => (
-                            <div key={topic.id} className="group/rem flex items-center justify-between bg-gray-100 dark:bg-gray-800/80 hover:bg-gray-100 dark:bg-gray-800 border border-purple-900/30 hover:border-purple-500/30 p-4 rounded-2xl transition-all duration-300">
-                              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                                {topic.name || topic.topic?.name}
-                                {topic.isCAReminder && (
-                                  <Link href="/ca-tracker" className="text-pink-400 hover:text-pink-300" title="Go to CA Tracker">
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                  </Link>
-                                )}
-                              </h3>
-                              <button
-                                onClick={() => {
-                                  if (topic.isCAReminder && topic.subjectId && topic.reminderId) handleCompleteCAReminder(topic.subjectId, topic.reminderId);
-                                  else if (topic.topic) handleComplete(topic.topic, topic.topic.reminderDate!);
-                                }}
-                                className="text-gray-500 dark:text-gray-400 hover:text-green-400 transition-colors"
-                              >
-                                <Circle className="w-6 h-6 hover:scale-110 transition-transform" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Tomorrow */}
-                      {groupedReminders.tomorrow.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-800/50">
-                            Tomorrow
-                          </h3>
-                          {groupedReminders.tomorrow.map(topic => (
-                            <div key={topic.id} className="flex items-center justify-between bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/80 p-4 rounded-2xl">
-                              <div className="flex flex-col">
-                                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                                  {topic.name || topic.topic?.name}
-                                  {topic.isCAReminder && (
-                                    <Link href="/ca-tracker" className="text-pink-400/80 hover:text-pink-300" title="Go to CA Tracker">
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </Link>
-                                  )}
-                                </h3>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Upcoming */}
-                      {groupedReminders.future.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-800/50">
-                            Upcoming
-                          </h3>
-                          {groupedReminders.future.map(topic => (
-                            <div key={topic.id} className="flex items-center justify-between bg-white dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800/50 p-4 rounded-xl">
-                              <div className="flex flex-col">
-                                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                                  {topic.name || topic.topic?.name}
-                                  {topic.isCAReminder && (
-                                    <Link href="/ca-tracker" className="text-pink-400/60 hover:text-pink-300" title="Go to CA Tracker">
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </Link>
-                                  )}
-                                </h3>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
-                                  <span>{format(new Date(topic.dueDate), 'MMM d, yyyy')}</span>
-                                  <span className="text-gray-700">•</span>
-                                  <span className="text-gray-600">In {topic.daysAway} days</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                ) : (
-                  selectedDateReminders.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                      <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p>No reminders!</p>
-                    </div>
-                  ) : (
-                    selectedDateReminders.map(topic => (
-                      <div key={topic.id} className="group/rem flex items-center justify-between bg-gray-100 dark:bg-gray-800/80 border border-purple-900/30 hover:border-purple-500/30 p-4 rounded-2xl transition-all duration-300">
-                        <h3 className={`text-base font-semibold flex items-center gap-2 ${topic.completed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-100'}`}>
-                          {topic.name || topic.topic?.name}
-                          {topic.isCAReminder && (
-                            <Link href="/ca-tracker" className={`${topic.completed ? 'text-gray-400' : 'text-pink-400 hover:text-pink-300'}`} title="Go to CA Tracker">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Link>
-                          )}
-                        </h3>
-                        <button
-                          onClick={() => {
-                            if (!topic.completed) {
-                              if (topic.isCAReminder && topic.subjectId && topic.reminderId) handleCompleteCAReminder(topic.subjectId, topic.reminderId);
-                              else if (topic.topic) handleComplete(topic.topic, topic.topic.reminderDate!);
-                            }
-                          }}
-                          className={`transition-colors ${topic.completed ? 'text-green-500 cursor-default' : 'text-gray-500 dark:text-gray-400 hover:text-green-400'}`}
-                          disabled={topic.completed}
-                        >
-                          {topic.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6 group-hover/item:scale-110 transition-transform" />}
-                        </button>
-                      </div>
-                    ))
-                  )
-                )}
-              </div>
-            </section>
-
-          </div>
-        </div>
-
       </div>
     </div>
   );

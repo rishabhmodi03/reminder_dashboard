@@ -36,11 +36,20 @@ export interface Note {
     updatedAt: string;
 }
 
+export interface Streak {
+    id: string;
+    name: string;
+    createdAt: string;
+    completedDates: string[];
+    archived: boolean;
+}
+
 export function useFirebaseData() {
     const [topics, setTopics] = useState<Topic[]>([]);
     const [intervals, setIntervals] = useState<Interval[]>([]);
     const [logs, setLogs] = useState<DailyLog[]>([]);
     const [notes, setNotes] = useState<Note[]>([]);
+    const [streaks, setStreaks] = useState<Streak[]>([]);
     const [loading, setLoading] = useState(true);
     const { db } = useFirebase();
 
@@ -52,6 +61,7 @@ export function useFirebaseData() {
         let unsubIntervals: () => void;
         let unsubLogs: () => void;
         let unsubNotes: () => void;
+        let unsubStreaks: () => void;
 
         try {
             unsubTopics = onSnapshot(collection(db, 'topics'), (snapshot) => {
@@ -70,6 +80,10 @@ export function useFirebaseData() {
                 setNotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note)));
             }, (error) => console.error("Error fetching notes:", error));
 
+            unsubStreaks = onSnapshot(query(collection(db, 'streaks'), orderBy('createdAt', 'desc')), (snapshot) => {
+                setStreaks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Streak)));
+            }, (error) => console.error("Error fetching streaks:", error));
+
             setTimeout(() => setLoading(false), 0);
         } catch (e) {
             console.error("Firebase not properly initialized or offline", e);
@@ -81,6 +95,7 @@ export function useFirebaseData() {
             if (unsubIntervals) unsubIntervals();
             if (unsubLogs) unsubLogs();
             if (unsubNotes) unsubNotes();
+            if (unsubStreaks) unsubStreaks();
         };
     }, [db]);
 
@@ -151,5 +166,32 @@ export function useFirebaseData() {
         }
     };
 
-    return { topics, intervals, logs, notes, loading, addTopic, updateTopic, addInterval, saveDailyLog, addNote, updateNote, deleteNote };
+    const addStreak = async (streak: Omit<Streak, 'id'>) => {
+        if (!db) return;
+        try {
+            await addDoc(collection(db, 'streaks'), streak);
+        } catch (e) {
+            console.error("Error adding streak: ", e);
+        }
+    };
+
+    const updateStreak = async (id: string, data: Partial<Streak>) => {
+        if (!db) return;
+        try {
+            await updateDoc(doc(db, 'streaks', id), data);
+        } catch (e) {
+            console.error("Error updating streak: ", e);
+        }
+    };
+
+    const deleteStreak = async (id: string) => {
+        if (!db) return;
+        try {
+            await deleteDoc(doc(db, 'streaks', id));
+        } catch (e) {
+            console.error("Error deleting streak: ", e);
+        }
+    };
+
+    return { topics, intervals, logs, notes, streaks, loading, addTopic, updateTopic, addInterval, saveDailyLog, addNote, updateNote, deleteNote, addStreak, updateStreak, deleteStreak };
 }
