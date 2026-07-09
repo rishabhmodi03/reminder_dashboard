@@ -165,26 +165,49 @@ export default function Dashboard() {
     updateSubject(subjectId, { reminders: updatedRems });
   };
 
+  const EXAM_DATE = new Date(2026, 9, 1);
+  const daysLeft = differenceInDays(EXAM_DATE, new Date());
+  const QUOTES = [
+    { q: "The exam doesn't know how hard you tried. It only cares what you can reproduce under pressure.", a: "CA Final Reality" },
+    { q: "Think like a topper. Write like a topper. You become what you repeatedly do.", a: "Ranker Mindset" },
+    { q: "Every question you skip today is a question you'll panic about in the hall.", a: "Hard Truth" },
+    { q: "Revision without writing is an illusion of preparation.", a: "Output > Input" },
+    { q: "If you can't write it in 3 hours, you don't know it yet.", a: "Exam First Principle" },
+  ];
+  const quote = QUOTES[new Date().getDate() % QUOTES.length];
+
   return (
-    <div className="space-y-12">
-      <header>
-        <h1 className="text-4xl font-black tracking-tight text-gray-900 dark:text-white mb-2">Dashboard</h1>
-        <p className="text-gray-500 dark:text-gray-400 font-medium">Keep track of your study schedule & reminders.</p>
+    <div className="space-y-8">
+      {/* RANKER HEADER */}
+      <header className="relative rounded-[2rem] bg-[#18181b] border border-white/5 p-8 overflow-hidden flex flex-col md:flex-row gap-6 md:items-center justify-between shadow-xl">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="relative z-10">
+          <div className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2">CA Final · Command Center</div>
+          <h1 className="text-4xl font-black text-white tracking-tight leading-none">Today's Battle</h1>
+          <p className="text-gray-500 text-sm mt-2">{format(new Date(), 'EEEE, d MMMM yyyy')}</p>
+        </div>
+        <div className="flex gap-4 flex-wrap relative z-10">
+          <div className="bg-[#101012] border border-white/5 rounded-2xl p-5 text-center min-w-[90px]">
+            <div className={`text-3xl font-black ${daysLeft < 50 ? 'text-red-400' : daysLeft < 100 ? 'text-orange-400' : 'text-white'}`}>{daysLeft}</div>
+            <div className="text-[9px] text-gray-600 font-black uppercase tracking-widest mt-0.5">Days Left</div>
+          </div>
+          <div className="bg-[#101012] border border-white/5 rounded-2xl p-5 text-center min-w-[90px]">
+            <div className={`text-3xl font-black ${overdueItems.length > 0 ? 'text-red-400 animate-pulse' : 'text-green-400'}`}>{overdueItems.length}</div>
+            <div className="text-[9px] text-gray-600 font-black uppercase tracking-widest mt-0.5">Overdue</div>
+          </div>
+          <div className="bg-[#101012] border border-white/5 rounded-2xl p-5 text-center min-w-[90px]">
+            <div className="text-3xl font-black text-indigo-400">{selectedDateRevisions.filter(r => !r.completed).length}</div>
+            <div className="text-[9px] text-gray-600 font-black uppercase tracking-widest mt-0.5">Due Today</div>
+          </div>
+        </div>
       </header>
 
-      {/* QUOTE BANNER */}
-      <div className="bg-gradient-to-r from-[#6b4cff] to-[#9d4cff] rounded-2xl p-6 shadow-lg shadow-purple-500/30 mb-8 relative overflow-hidden flex items-center justify-between">
-        <div className="flex items-center gap-4 relative z-10 w-full">
-          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md shrink-0">
-            <span className="text-2xl text-white">⚡</span>
-          </div>
-          <div className="flex-1">
-            <div className="text-white/80 text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
-              <span className="text-white">+ TODAY'S MOTIVATION</span>
-            </div>
-            <div className="text-white font-bold italic text-lg leading-snug">"Do not wait to strike till the iron is hot; make it hot by striking."</div>
-            <div className="text-white/70 text-sm mt-1">— William Butler Yeats</div>
-          </div>
+      {/* QUOTE */}
+      <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/30 border border-indigo-500/20 rounded-2xl p-6 flex gap-4 items-start">
+        <span className="text-xl mt-0.5">💀</span>
+        <div>
+          <div className="text-white font-bold italic leading-snug">"{quote.q}"</div>
+          <div className="text-indigo-400 text-xs font-black mt-2 uppercase tracking-widest">— {quote.a}</div>
         </div>
       </div>
 

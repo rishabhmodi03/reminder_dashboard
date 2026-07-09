@@ -2,288 +2,303 @@
 
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useState } from "react";
-import { format, subDays, parseISO } from "date-fns";
-import { getTodayStr } from "@/lib/dateUtils";
-import { X } from "lucide-react";
+import { format, addDays, startOfWeek, parseISO, differenceInDays, isToday, isPast, isFuture } from "date-fns";
+import { getTodayStr, addDaysToStr } from "@/lib/dateUtils";
+import { CheckCircle2, Circle, X, Calendar, Clock, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 7 to 22
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseTimeToHours(timeStr: string): number {
-    if (!timeStr) return 0;
-    let match = timeStr.trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?/);
-    if (!match) return 0;
-    let [_, h, m, meridiem] = match;
-    let hour = parseInt(h);
-    let min = parseInt(m) / 60;
-    meridiem = (meridiem || '').toUpperCase();
-    if (meridiem === 'PM' && hour !== 12) hour += 12;
-    if (meridiem === 'AM' && hour === 12) hour = 0;
-    return hour + min;
+function getWeekStart(d: Date) {
+    return startOfWeek(d, { weekStartsOn: 1 }); // Monday
 }
 
-const getColorClass = (text: string) => {
-    const lower = text.toLowerCase();
-    if (lower.includes('fr') || lower.includes('cma')) return 'bg-[#FF84C6] text-black border-[#FF84C6] shadow-[0_0_10px_rgba(255,132,198,0.2)]';
-    if (lower.includes('aud')) return 'bg-[#CBA92C] text-black border-[#CBA92C] shadow-[0_0_10px_rgba(203,169,44,0.2)]';
-    if (lower.includes('law')) return 'bg-[#31D6A7] text-black border-[#31D6A7] shadow-[0_0_10px_rgba(49,214,167,0.2)]';
-    if (lower.includes('sfm') || lower.includes('afm') || lower.includes('it')) return 'bg-[#F49642] text-black border-[#F49642] shadow-[0_0_10px_rgba(244,150,66,0.2)]';
-    if (lower.includes('dt') || lower.includes('idt') || lower.includes('gst')) return 'bg-[#2DCBEC] text-black border-[#2DCBEC] shadow-[0_0_10px_rgba(45,203,236,0.2)]';
-    return 'bg-[#AC84FF] text-black border-[#AC84FF] shadow-[0_0_10px_rgba(172,132,255,0.2)]';
-};
-
-const getSubjectName = (text: string) => {
-    const s = text.toUpperCase();
-    if (s.includes('FR')) return 'FR';
-    if (s.includes('AUD')) return 'AUD';
-    if (s.includes('LAW')) return 'LAW';
-    if (s.includes('AFM') || s.includes('SFM')) return 'AFM';
-    if (s.includes('DT')) return 'DT';
-    if (s.includes('IDT') || s.includes('GST')) return 'IDT';
-    if (s.includes('CMA')) return 'CMA';
-    if (s.includes('IT')) return 'IT';
-    return text.length > 5 ? text.substring(0, 5) : text;
-}
-
-const formatTimeRange = (start: number, end: number) => {
-    const sH = Math.floor(start).toString().padStart(2, '0');
-    const sM = Math.round((start % 1) * 60).toString().padStart(2, '0');
-    const eH = Math.floor(end).toString().padStart(2, '0');
-    const eM = Math.round((end % 1) * 60).toString().padStart(2, '0');
-    return `${sH}:${sM} - ${eH}:${eM}`;
-}
-
-interface Block {
-    startHour: number;
-    endHour: number;
-    text: string;
-    subject: string;
-    colorClass: string;
-    inProgress?: boolean;
+interface RevisionEvent {
     dateStr: string;
+    topicId: string;
+    topicName: string;
+    revision: number;
+    label?: string;
+    totalRevs: number;
+    completed: boolean;
+    overdue: boolean;
 }
+
+// ─── Day Cell ─────────────────────────────────────────────────────────────────
+
+function DayCell({ dateStr, events, onClick }: {
+    dateStr: string;
+    events: RevisionEvent[];
+    onClick: () => void;
+}) {
+    const dt = parseISO(dateStr);
+    const today = isToday(dt);
+    const past = isPast(dt) && !today;
+    const dayNum = format(dt, 'd');
+    const monthLabel = format(dt, 'MMM');
+
+    const completedCount = events.filter(e => e.completed).length;
+    const overdueCount = events.filter(e => e.overdue && !e.completed).length;
+    const pendingCount = events.filter(e => !e.completed && !e.overdue).length;
+
+    const hasSomething = events.length > 0;
+
+    return (
+        <div
+            onClick={hasSomething ? onClick : undefined}
+            className={`relative min-h-[80px] md:min-h-[100px] rounded-xl border p-2 transition-all
+                ${today ? 'border-indigo-500/60 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.15)]' : 'border-white/5 bg-[#18181b]'}
+                ${hasSomething ? 'cursor-pointer hover:border-white/20 hover:bg-[#1e1e22]' : 'opacity-60'}
+                ${past && !hasSomething ? 'opacity-30' : ''}
+            `}
+        >
+            {/* Day number */}
+            <div className="flex items-center justify-between mb-1.5">
+                <div>
+                    <span className={`text-sm font-black ${today ? 'text-indigo-300' : past ? 'text-gray-600' : 'text-gray-300'}`}>{dayNum}</span>
+                    {format(dt, 'd') === '1' && <span className="text-[9px] text-gray-600 ml-1 uppercase">{monthLabel}</span>}
+                </div>
+                {today && <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/20 px-1.5 py-0.5 rounded-full">today</span>}
+            </div>
+
+            {/* Event pills */}
+            {hasSomething && (
+                <div className="flex flex-col gap-0.5">
+                    {overdueCount > 0 && (
+                        <div className="bg-red-500/20 border border-red-500/40 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            {overdueCount} overdue
+                        </div>
+                    )}
+                    {pendingCount > 0 && (
+                        <div className="bg-blue-500/15 border border-blue-500/30 text-blue-300 text-[9px] font-black px-1.5 py-0.5 rounded-md">
+                            {pendingCount} due
+                        </div>
+                    )}
+                    {completedCount > 0 && (
+                        <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-black px-1.5 py-0.5 rounded-md">
+                            ✓ {completedCount} done
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Day Detail Modal ─────────────────────────────────────────────────────────
+
+function DayModal({ dateStr, events, onClose, onComplete }: {
+    dateStr: string;
+    events: RevisionEvent[];
+    onClose: () => void;
+    onComplete: (topicId: string, dateStr: string) => void;
+}) {
+    const dt = parseISO(dateStr);
+    const sortedEvents = [...events].sort((a, b) => (a.completed ? 1 : -1) - (b.completed ? 1 : -1));
+
+    return (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-[#18181b] border border-white/10 rounded-[2rem] p-8 w-full max-w-lg shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 className="text-xl font-black text-white">{format(dt, 'EEEE, d MMMM')}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">{events.length} revision{events.length !== 1 ? 's' : ''} scheduled</p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-600 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                    {sortedEvents.map((ev, i) => (
+                        <div key={`${ev.topicId}-${ev.revision}-${i}`}
+                            className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${ev.completed
+                                ? 'bg-green-500/5 border-green-500/20 opacity-60'
+                                : ev.overdue
+                                    ? 'bg-red-500/10 border-red-500/30'
+                                    : 'bg-[#22222a] border-white/5'
+                                }`}>
+                            <button
+                                onClick={() => !ev.completed && onComplete(ev.topicId, dateStr)}
+                                className={`shrink-0 transition-all ${ev.completed ? 'text-green-400' : ev.overdue ? 'text-red-400 hover:text-green-400' : 'text-gray-600 hover:text-indigo-400'}`}
+                            >
+                                {ev.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                                <div className={`font-bold text-sm truncate ${ev.completed ? 'line-through text-gray-500' : 'text-white'}`}>
+                                    {ev.topicName}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    {ev.label && (
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded-md">{ev.label}</span>
+                                    )}
+                                    <span className="text-[10px] text-gray-600 font-mono">Rev {ev.revision}/{ev.totalRevs}</span>
+                                    {ev.overdue && !ev.completed && (
+                                        <span className="text-[10px] text-red-400 font-black">• OVERDUE</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Timeline() {
-    const { logs, loading } = useFirebaseData();
-    const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
+    const { topics, intervals, loading, updateTopic } = useFirebaseData();
+    const [weekOffset, setWeekOffset] = useState(0);
+    const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
     if (loading) {
         return (
-            <div className="bg-[#121212] min-h-screen text-gray-300 w-full rounded-[2rem] p-10 flex items-center justify-center font-mono text-xl animate-pulse">
-                Initializing Grid...
+            <div className="bg-[#101012] min-h-screen flex items-center justify-center text-gray-500 font-mono animate-pulse">
+                Building revision schedule...
             </div>
         );
     }
 
-    const today = new Date();
-    // Render last 7 days
-    const daysToRender = Array.from({ length: 7 }, (_, i) => {
-        const d = subDays(today, i);
-        return format(d, 'yyyy-MM-dd');
+    const today = getTodayStr();
+
+    // Build events map: dateStr -> RevisionEvent[]
+    const eventsMap: Record<string, RevisionEvent[]> = {};
+
+    topics.filter(t => !t.archived && t.type === 'spaced' && t.intervalId).forEach(topic => {
+        const interval = intervals.find(i => i.id === topic.intervalId);
+        if (!interval) return;
+
+        interval.days.forEach((dayOffset, index) => {
+            const dateStr = addDaysToStr(topic.startDate, dayOffset);
+            const completed = topic.completedDates.includes(dateStr);
+            const overdue = !completed && isPast(parseISO(dateStr)) && dateStr !== today;
+
+            if (!eventsMap[dateStr]) eventsMap[dateStr] = [];
+            eventsMap[dateStr].push({
+                dateStr,
+                topicId: topic.id,
+                topicName: topic.name,
+                revision: index + 1,
+                label: interval.labels?.[index],
+                totalRevs: interval.days.length,
+                completed,
+                overdue,
+            });
+        });
     });
 
+    // Stats
+    const allEvents = Object.values(eventsMap).flat();
+    const totalRevisions = allEvents.length;
+    const completedRevisions = allEvents.filter(e => e.completed).length;
+    const overdueRevisions = allEvents.filter(e => e.overdue && !e.completed).length;
+    const todayRevisions = (eventsMap[today] || []).filter(e => !e.completed).length;
+
+    // Calendar grid — 5 weeks (Mon-Sun)
+    const baseWeekStart = getWeekStart(new Date());
+    const gridStart = addDays(baseWeekStart, weekOffset * 7 - 14); // start 2 weeks before current offset
+    const TOTAL_DAYS = 35; // 5 weeks
+
+    const gridDays = Array.from({ length: TOTAL_DAYS }, (_, i) => ({
+        dateStr: format(addDays(gridStart, i), 'yyyy-MM-dd'),
+        weekDay: i % 7,
+    }));
+
+    const handleComplete = (topicId: string, completeDateStr: string) => {
+        const topic = topics.find(t => t.id === topicId);
+        if (!topic) return;
+        updateTopic(topicId, { completedDates: [...topic.completedDates, completeDateStr] });
+    };
+
+    const selectedEvents = selectedDay ? (eventsMap[selectedDay] || []) : [];
+
     return (
-        <div className="bg-[#101012] min-h-screen text-gray-300 w-full rounded-[2rem] p-10 shadow-2xl relative overflow-hidden border border-[#2A2A2E]">
+        <div className="bg-[#101012] min-h-screen text-gray-300 p-6 md:p-10 pb-24">
+            {selectedDay && selectedEvents.length > 0 && (
+                <DayModal
+                    dateStr={selectedDay}
+                    events={selectedEvents}
+                    onClose={() => setSelectedDay(null)}
+                    onComplete={handleComplete}
+                />
+            )}
+
             {/* Header */}
-            <div className="mb-10 flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-black text-white">Timeline</h1>
-                    <p className="text-gray-400 mt-1 font-mono text-sm">Every session placed by time of day. Bar length = real study time.</p>
+            <div className="mb-8">
+                <h1 className="text-3xl font-black text-white tracking-tight">Revision Timeline</h1>
+                <p className="text-xs text-gray-500 mt-1.5">Your scheduled spaced-repetition topics — click any day to see what's due.</p>
+            </div>
+
+            {/* Stats bar */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+                {[
+                    { label: 'Today Due', value: todayRevisions, color: todayRevisions > 0 ? 'text-indigo-400' : 'text-gray-600', cls: todayRevisions > 0 ? 'border-indigo-500/30' : '' },
+                    { label: 'Overdue', value: overdueRevisions, color: overdueRevisions > 0 ? 'text-red-400' : 'text-gray-600', cls: overdueRevisions > 0 ? 'border-red-500/30' : '' },
+                    { label: 'Total Completed', value: completedRevisions, color: 'text-green-400', cls: '' },
+                    { label: 'Total Scheduled', value: totalRevisions, color: 'text-gray-300', cls: '' },
+                ].map(s => (
+                    <div key={s.label} className={`bg-[#18181b] border border-white/5 ${s.cls} rounded-2xl p-4`}>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1">{s.label}</div>
+                        <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Calendar nav */}
+            <div className="flex items-center justify-between mb-4">
+                <div className="text-sm font-bold text-gray-400">
+                    {format(gridStart, 'MMM d')} – {format(addDays(gridStart, TOTAL_DAYS - 1), 'MMM d, yyyy')}
                 </div>
-                <div className="flex gap-4">
-                    <div className="bg-[#1C1C1E] px-4 py-2 rounded-xl text-xs font-bold font-mono border border-[#2A2A2E] text-gray-400">Good day <span className="text-white">&ge; 8 h</span></div>
-                    <div className="bg-[#1C1C1E] px-4 py-2 rounded-xl text-xs font-bold font-mono border border-[#2A2A2E] text-gray-400">Decent <span className="text-white">&ge; 6 h</span></div>
+                <div className="flex gap-2">
+                    <button onClick={() => setWeekOffset(w => w - 1)} className="bg-[#18181b] border border-white/5 hover:border-white/20 text-gray-400 hover:text-white p-2 rounded-xl transition-all">
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setWeekOffset(0)} className="bg-[#18181b] border border-white/5 hover:border-indigo-500/40 text-gray-400 hover:text-indigo-400 px-4 py-2 rounded-xl text-xs font-bold transition-all">
+                        Today
+                    </button>
+                    <button onClick={() => setWeekOffset(w => w + 1)} className="bg-[#18181b] border border-white/5 hover:border-white/20 text-gray-400 hover:text-white p-2 rounded-xl transition-all">
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
 
-            {/* Grid layout */}
-            <div className="relative border border-[#2A2A2E] bg-[#161618] rounded-xl shadow-2xl overflow-x-auto custom-scrollbar">
-                <div className="min-w-[800px] md:min-w-0">
-                    {/* Header Row */}
-                    <div className="flex border-b border-[#2A2A2E] bg-[#1A1A1D]">
-                        <div className="w-32 py-4 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest border-r border-[#2A2A2E] shrink-0 font-mono">
-                            DATE
-                        </div>
-                        <div className="flex-1 flex relative h-full">
-                            {HOURS.map(h => (
-                                <div key={h} className="flex-1 min-w-0 border-r border-[#2A2A2E]/50 text-center py-4 text-[10px] text-gray-500 font-bold font-mono bg-[#1C1C20]">
-                                    {h.toString().padStart(2, '0')}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="w-20 py-4 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-l border-[#2A2A2E] shrink-0 font-mono">
-                            TOTAL
-                        </div>
-                    </div>
+            {/* Weekday headers */}
+            <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-black text-gray-600 uppercase tracking-widest py-1">{d}</div>
+                ))}
+            </div>
 
-                    {/* Days Rows */}
-                    <div className="divide-y divide-[#2A2A2E]">
-                        {daysToRender.map(dateStr => {
-                            const log = logs.find(l => l.date === dateStr);
-
-                            // Calculate blocks
-                            const blocks: Block[] = [];
-                            let totalStudyHours = 0;
-
-                            const isToday = dateStr === getTodayStr();
-
-                            if (log && log.entries) {
-                                // extract valid time entries
-                                const timeEntries = log.entries
-                                    .map(e => {
-                                        const match = e.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)\s*-\s*(.*)/i);
-                                        if (match) return { time: match[1], text: match[2], hour: parseTimeToHours(match[1]) };
-                                        return null;
-                                    })
-                                    .filter(Boolean)
-                                    .sort((a, b) => a!.hour - b!.hour) as { time: string, text: string, hour: number }[];
-
-                                for (let i = 0; i < timeEntries.length; i++) {
-                                    const cur = timeEntries[i];
-                                    const next = timeEntries[i + 1];
-                                    const startHour = Math.max(7, cur.hour); // clip to 7 am
-                                    const endHourRaw = next ? next.hour : (isToday && i === timeEntries.length - 1 ? cur.hour + 2 : cur.hour + 2);
-                                    const endHour = Math.min(23, endHourRaw); // clip to 23
-
-                                    if (endHour > startHour && startHour >= 7 && startHour < 23) {
-                                        blocks.push({
-                                            startHour,
-                                            endHour,
-                                            text: cur.text,
-                                            subject: getSubjectName(cur.text),
-                                            colorClass: getColorClass(cur.text),
-                                            inProgress: isToday && !next,
-                                            dateStr
-                                        });
-                                        totalStudyHours += (endHour - startHour);
-                                    }
-                                }
-                            }
-
-                            // Use manual studyHours if entered, otherwise calculate from timeline
-                            if (log && log.studyHours && totalStudyHours === 0) {
-                                totalStudyHours = log.studyHours;
-                            }
-
-                            return (
-                                <div key={dateStr} className="flex min-h-[64px] hover:bg-[#1A1A1D] transition-colors relative group">
-                                    {/* Date Column */}
-                                    <div className="w-32 p-4 border-r border-[#2A2A2E] shrink-0 flex flex-col justify-center">
-                                        <div className="font-bold text-white text-sm tracking-tight">{format(parseISO(dateStr), 'dd MMM')}</div>
-                                        <div className="text-xs text-gray-500 font-mono mt-0.5">{format(parseISO(dateStr), 'EEE')}{isToday ? ' • today' : ''}</div>
-                                    </div>
-
-                                    {/* timeline track */}
-                                    <div className="flex-1 flex relative">
-                                        {/* grid lines */}
-                                        {HOURS.map(h => (
-                                            <div key={`grid-${h}`} className="flex-1 min-w-0 border-r border-[#2A2A2E]/30 group-hover:border-[#2A2A2E]/70 transition-colors"></div>
-                                        ))}
-
-                                        {/* blocks */}
-                                        {blocks.map((blk, idx) => {
-                                            // scale: 16 hours total spanning 100% width.
-                                            const leftPct = ((blk.startHour - 7) / 16) * 100;
-                                            const widthPct = ((blk.endHour - blk.startHour) / 16) * 100;
-                                            return (
-                                                <div
-                                                    key={idx}
-                                                    className={`absolute top-[50%] -translate-y-[50%] h-[28px] rounded-md ${blk.colorClass} ${blk.inProgress ? 'opacity-80 border-dashed border-2' : ''} flex items-center px-3 overflow-hidden text-[10px] font-bold font-mono z-10 transition-transform hover:scale-[1.02] hover:z-20 cursor-pointer`}
-                                                    style={{
-                                                        left: `${Math.max(0, leftPct)}%`,
-                                                        width: `${Math.min(100 - leftPct, widthPct)}%`,
-                                                    }}
-                                                    title={`${blk.text} (${Math.round((blk.endHour - blk.startHour) * 10) / 10}h)`}
-                                                    onClick={() => setSelectedBlock(blk)}
-                                                >
-                                                    <span className="truncate drop-shadow-md">{blk.subject}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Total Hours */}
-                                    <div className={`w-20 p-4 border-l border-[#2A2A2E] shrink-0 flex items-center justify-center font-mono font-bold text-xs ${totalStudyHours >= 8 ? 'text-[#31D6A7]' : totalStudyHours >= 6 ? 'text-[#CBA92C]' : 'text-gray-500'}`}>
-                                        {totalStudyHours > 0 ? (
-                                            <span>
-                                                <span className="text-white text-sm">{Math.floor(totalStudyHours)}</span>h {totalStudyHours % 1 !== 0 ? <span className="opacity-80 ml-0.5">{Math.round((totalStudyHours % 1) * 60)}m</span> : ''}
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-600">-</span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 gap-1.5">
+                {gridDays.map(({ dateStr }) => (
+                    <DayCell
+                        key={dateStr}
+                        dateStr={dateStr}
+                        events={eventsMap[dateStr] || []}
+                        onClick={() => setSelectedDay(dateStr)}
+                    />
+                ))}
             </div>
 
             {/* Legend */}
-            <div className="flex flex-wrap items-center gap-6 mt-8">
+            <div className="flex flex-wrap gap-4 mt-6 border-t border-white/5 pt-6">
                 {[
-                    { name: 'AA', color: 'bg-[#AC84FF]' },
-                    { name: 'LAW', color: 'bg-[#31D6A7]' },
-                    { name: 'IT/AFM', color: 'bg-[#F49642]' },
-                    { name: 'GST/DT', color: 'bg-[#2DCBEC]' },
-                    { name: 'CMA/FR', color: 'bg-[#FF84C6]' },
-                    { name: 'AUD', color: 'bg-[#CBA92C]' }
+                    { label: 'Due', cls: 'bg-blue-500/15 border border-blue-500/30 text-blue-300' },
+                    { label: 'Overdue', cls: 'bg-red-500/15 border border-red-500/30 text-red-400' },
+                    { label: 'Done', cls: 'bg-green-500/10 border border-green-500/20 text-green-400' },
+                    { label: 'Today', cls: 'bg-indigo-500/15 border border-indigo-500/40 text-indigo-300' },
                 ].map(l => (
-                    <div key={l.name} className="flex items-center gap-2">
-                        <span className={`w-3 h-3 rounded ${l.color}`}></span>
-                        <span className="text-xs font-bold text-gray-400 font-mono">{l.name}</span>
+                    <div key={l.label} className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${l.cls}`}>{l.label}</span>
                     </div>
                 ))}
-                <div className="ml-auto flex gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 rounded bg-[#E4E4E5]"></span>
-                        <span className="text-xs text-gray-400 font-mono">done</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 rounded border-2 border-dashed border-[#E4E4E5] bg-transparent"></span>
-                        <span className="text-xs text-gray-400 font-mono">in progress</span>
-                    </div>
+                <div className="ml-auto text-[10px] text-gray-600 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" /> Click any day to see revisions &amp; mark done
                 </div>
             </div>
-
-            {/* Modal */}
-            {selectedBlock && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 shadow-2xl transition-all" onClick={() => setSelectedBlock(null)}>
-                    <div
-                        className="bg-[#1C1C1E] border border-white/10 p-8 rounded-[2rem] max-w-md w-full shadow-2xl shadow-black relative"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[50px] pointer-events-none -translate-y-1/2 translate-x-1/4"></div>
-                        <div className="absolute top-0 left-0 w-32 h-32 bg-teal-500/10 rounded-full blur-[50px] pointer-events-none -translate-y-1/2 -translate-x-1/4"></div>
-
-                        <div className="flex justify-between items-start mb-8 relative z-10">
-                            <div className="flex items-center gap-3">
-                                <span className={`w-5 h-5 rounded-md ${selectedBlock.colorClass} shadow-md`}></span>
-                                <h3 className="text-2xl font-black text-white tracking-tight">{selectedBlock.subject} Session</h3>
-                            </div>
-                            <button onClick={() => setSelectedBlock(null)} className="text-gray-500 hover:text-white transition-colors bg-white/5 p-2 rounded-xl hover:bg-white/10">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4 relative z-10">
-                            <div className="bg-[#2C2C2E]/80 p-5 rounded-2xl border border-white/5 shadow-inner">
-                                <p className="text-indigo-400 text-xs font-black uppercase tracking-widest mb-1.5 flex items-center gap-2">Details</p>
-                                <p className="text-white text-base leading-relaxed break-words">{selectedBlock.text}</p>
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="bg-[#2C2C2E]/80 p-5 rounded-2xl border border-white/5 flex-1 shadow-inner">
-                                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Date</p>
-                                    <p className="text-gray-200 font-mono text-sm">{format(parseISO(selectedBlock.dateStr), 'dd MMM yyyy')}</p>
-                                </div>
-                                <div className="bg-[#2C2C2E]/80 p-5 rounded-2xl border border-white/5 flex-1 shadow-inner">
-                                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Time Period</p>
-                                    <p className="text-gray-200 font-mono text-sm">{formatTimeRange(selectedBlock.startHour, selectedBlock.endHour)}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
