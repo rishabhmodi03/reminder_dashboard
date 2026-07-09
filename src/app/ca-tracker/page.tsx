@@ -10,7 +10,7 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const EXAM_DATE = new Date(2027, 4, 1); // May 2027
+const EXAM_DATE = new Date(2026, 9, 1); //new Date(2027, 4, 1); // May 2027
 
 const SUBJECT_META: Record<string, { short: string; gradient: string; glow: string; border: string }> = {
     fr: { short: 'FR', gradient: 'from-pink-500 to-rose-600', glow: 'shadow-pink-500/10', border: 'hover:border-pink-500/40' },
