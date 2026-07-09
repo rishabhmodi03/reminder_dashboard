@@ -29,9 +29,12 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const stored = localStorage.getItem("firebaseProjectId");
+        const stored = localStorage.getItem("firebaseProjectId") || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
         if (stored) {
             setProjectIdState(stored);
+            if (!localStorage.getItem("firebaseProjectId")) {
+                localStorage.setItem("firebaseProjectId", stored);
+            }
         } else {
             setShowModal(true);
         }

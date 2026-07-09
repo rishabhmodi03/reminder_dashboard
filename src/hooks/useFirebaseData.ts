@@ -44,12 +44,41 @@ export interface Streak {
     archived: boolean;
 }
 
+export interface Todo {
+    id: string;
+    text: string;
+    type: 'weekly' | 'pending';
+    completed: boolean;
+    createdAt: string;
+    subject?: string;
+    priority?: 'Must' | 'Should' | 'Someday';
+    source?: string;
+    dayOfWeek?: number;
+    isBigRock?: boolean;
+}
+
+export interface Mistake {
+    id: string;
+    subject: string;
+    reason: string;
+    createdAt: string;
+}
+
+export interface WrittenAnswer {
+    id: string;
+    subject: string;
+    createdAt: string;
+}
+
 export function useFirebaseData() {
     const [topics, setTopics] = useState<Topic[]>([]);
     const [intervals, setIntervals] = useState<Interval[]>([]);
     const [logs, setLogs] = useState<DailyLog[]>([]);
     const [notes, setNotes] = useState<Note[]>([]);
     const [streaks, setStreaks] = useState<Streak[]>([]);
+    const [todos, setTodos] = useState<Todo[]>([]);
+    const [mistakes, setMistakes] = useState<Mistake[]>([]);
+    const [writtenAnswers, setWrittenAnswers] = useState<WrittenAnswer[]>([]);
     const [loading, setLoading] = useState(true);
     const { db } = useFirebase();
 
@@ -62,6 +91,9 @@ export function useFirebaseData() {
         let unsubLogs: () => void;
         let unsubNotes: () => void;
         let unsubStreaks: () => void;
+        let unsubTodos: () => void;
+        let unsubMistakes: () => void;
+        let unsubWrittenAnswers: () => void;
 
         try {
             unsubTopics = onSnapshot(collection(db, 'topics'), (snapshot) => {
@@ -84,6 +116,18 @@ export function useFirebaseData() {
                 setStreaks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Streak)));
             }, (error) => console.error("Error fetching streaks:", error));
 
+            unsubTodos = onSnapshot(query(collection(db, 'todos'), orderBy('createdAt', 'desc')), (snapshot) => {
+                setTodos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Todo)));
+            }, (error) => console.error("Error fetching todos:", error));
+
+            unsubMistakes = onSnapshot(query(collection(db, 'mistakes'), orderBy('createdAt', 'desc')), (snapshot) => {
+                setMistakes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Mistake)));
+            }, (error) => console.error("Error fetching mistakes:", error));
+
+            unsubWrittenAnswers = onSnapshot(query(collection(db, 'written_answers'), orderBy('createdAt', 'desc')), (snapshot) => {
+                setWrittenAnswers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WrittenAnswer)));
+            }, (error) => console.error("Error fetching written answers:", error));
+
             setTimeout(() => setLoading(false), 0);
         } catch (e) {
             console.error("Firebase not properly initialized or offline", e);
@@ -96,6 +140,9 @@ export function useFirebaseData() {
             if (unsubLogs) unsubLogs();
             if (unsubNotes) unsubNotes();
             if (unsubStreaks) unsubStreaks();
+            if (unsubTodos) unsubTodos();
+            if (unsubMistakes) unsubMistakes();
+            if (unsubWrittenAnswers) unsubWrittenAnswers();
         };
     }, [db]);
 
@@ -193,5 +240,59 @@ export function useFirebaseData() {
         }
     };
 
-    return { topics, intervals, logs, notes, streaks, loading, addTopic, updateTopic, addInterval, saveDailyLog, addNote, updateNote, deleteNote, addStreak, updateStreak, deleteStreak };
+    const addTodo = async (todo: Omit<Todo, 'id'>) => {
+        if (!db) return;
+        try {
+            await addDoc(collection(db, 'todos'), todo);
+        } catch (e) {
+            console.error("Error adding todo: ", e);
+        }
+    };
+
+    const updateTodo = async (id: string, data: Partial<Todo>) => {
+        if (!db) return;
+        try {
+            await updateDoc(doc(db, 'todos', id), data);
+        } catch (e) {
+            console.error("Error updating todo: ", e);
+        }
+    };
+
+    const deleteTodo = async (id: string) => {
+        if (!db) return;
+        try {
+            await deleteDoc(doc(db, 'todos', id));
+        } catch (e) {
+            console.error("Error deleting todo: ", e);
+        }
+    };
+
+    const addMistake = async (mistake: Omit<Mistake, 'id'>) => {
+        if (!db) return;
+        try {
+            await addDoc(collection(db, 'mistakes'), mistake);
+        } catch (e) {
+            console.error("Error adding mistake: ", e);
+        }
+    };
+
+    const deleteMistake = async (id: string) => {
+        if (!db) return;
+        try {
+            await deleteDoc(doc(db, 'mistakes', id));
+        } catch (e) {
+            console.error("Error deleting mistake: ", e);
+        }
+    };
+
+    const addWrittenAnswer = async (answer: Omit<WrittenAnswer, 'id'>) => {
+        if (!db) return;
+        try {
+            await addDoc(collection(db, 'written_answers'), answer);
+        } catch (e) {
+            console.error("Error adding written answer: ", e);
+        }
+    };
+
+    return { topics, intervals, logs, notes, streaks, todos, mistakes, writtenAnswers, loading, addTopic, updateTopic, addInterval, saveDailyLog, addNote, updateNote, deleteNote, addStreak, updateStreak, deleteStreak, addTodo, updateTodo, deleteTodo, addMistake, deleteMistake, addWrittenAnswer };
 }

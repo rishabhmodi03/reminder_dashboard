@@ -18,6 +18,9 @@ export interface TestScore {
     score: number;
     totalScore: number;
     notes?: string;
+    attemptedCount?: number;
+    correctCount?: number;
+    marksLostContext?: 'Concept' | 'Presentation' | 'Silly' | 'Unattempted';
 }
 
 export interface CAReminder {
@@ -25,6 +28,19 @@ export interface CAReminder {
     text: string;
     dueDate: string; // e.g. "2026-03-30" 
     completed: boolean;
+}
+
+export interface ConceptHole {
+    id: string;
+    chapter: string;    // e.g. "AS-12", "Ind AS 16"
+    createdAt: string;
+    resolved: boolean;
+}
+
+export interface RevisionRound {
+    round: number;       // 1, 2, 3
+    date: string;        // yyyy-MM-dd
+    notes?: string;
 }
 
 export interface CASubject {
@@ -36,11 +52,17 @@ export interface CASubject {
     qbTotal?: number;
     mcqCompleted?: number;
     mcqTotal?: number;
-    confidence?: 'Low' | 'Medium' | 'High';
-    materials?: string[]; // array of completed material IDs
+    confidence?: number; // 1 to 5
+    materials?: string[];
     revisions: Revision[];
     tests: TestScore[];
     reminders?: CAReminder[];
+
+    // Ranker fields
+    writtenAnswersThisWeek?: number;   // fast +1 tap counter, resets Monday
+    writtenAnswersWeekOf?: string;     // ISO week string to detect reset
+    conceptHoles?: ConceptHole[];      // quick chip-entry weak spots
+    revisionRounds?: RevisionRound[];  // R1 → R2 → R3 with dates
 }
 
 const DEFAULT_SUBJECTS = [

@@ -4,15 +4,16 @@ import { useState } from 'react';
 import { useFirebaseData, Topic } from "@/hooks/useFirebaseData";
 import { getTodayStr, isDateToday, isDatePast, addDaysToStr } from "@/lib/dateUtils";
 import { useCATracker } from "@/hooks/useCATracker";
-import { CheckCircle2, Circle, Clock, AlertTriangle, CalendarDays, ExternalLink, Calendar as CalendarIcon, BrainCircuit } from "lucide-react";
+import { CheckCircle2, Circle, Clock, AlertTriangle, CalendarDays, ExternalLink, Calendar as CalendarIcon, BrainCircuit, Target, ListTodo, Plus, Trash2 } from "lucide-react";
 import Link from 'next/link';
 import { format, differenceInDays } from "date-fns";
 import { DashboardCalendar } from "@/components/DashboardCalendar";
 import { DailyStreaks } from "@/components/DailyStreaks";
 import { getSpacedRepetitionGuide } from "@/lib/retentionUtils";
+import { WrittenAnswersWidget, MistakeLogWidget, PendingVaultWidget, WeeklyGridWidget } from "@/components/RankerWidgets";
 
 export default function Dashboard() {
-  const { topics, intervals, loading: fbLoading, updateTopic } = useFirebaseData();
+  const { topics, intervals, todos, addTodo, updateTodo, deleteTodo, loading: fbLoading, updateTopic } = useFirebaseData();
   const { subjects, loading: caLoading, updateSubject } = useCATracker();
   const [selectedDateStr, setSelectedDateStr] = useState(getTodayStr());
   const [showAllReminders, setShowAllReminders] = useState(true);
@@ -170,6 +171,22 @@ export default function Dashboard() {
         <h1 className="text-4xl font-black tracking-tight text-gray-900 dark:text-white mb-2">Dashboard</h1>
         <p className="text-gray-500 dark:text-gray-400 font-medium">Keep track of your study schedule & reminders.</p>
       </header>
+
+      {/* QUOTE BANNER */}
+      <div className="bg-gradient-to-r from-[#6b4cff] to-[#9d4cff] rounded-2xl p-6 shadow-lg shadow-purple-500/30 mb-8 relative overflow-hidden flex items-center justify-between">
+        <div className="flex items-center gap-4 relative z-10 w-full">
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md shrink-0">
+            <span className="text-2xl text-white">⚡</span>
+          </div>
+          <div className="flex-1">
+            <div className="text-white/80 text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
+              <span className="text-white">+ TODAY'S MOTIVATION</span>
+            </div>
+            <div className="text-white font-bold italic text-lg leading-snug">"Do not wait to strike till the iron is hot; make it hot by striking."</div>
+            <div className="text-white/70 text-sm mt-1">— William Butler Yeats</div>
+          </div>
+        </div>
+      </div>
 
       {/* Overdue Section */}
       {overdueItems.length > 0 && (
@@ -434,6 +451,18 @@ export default function Dashboard() {
           </section>
         </div>
       </div>
+
+      {/* WRITTEN ANSWERS WIDGET */}
+      <WrittenAnswersWidget />
+
+      {/* WEEKLY BATTLE PLAN & PENDING VAULT */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <WeeklyGridWidget />
+        <PendingVaultWidget />
+      </div>
+
+      {/* MISTAKE LOG (VOICE-NOTE FAST) */}
+      <MistakeLogWidget />
 
       {/* STREAKS SECTION */}
       <div className="mb-8">

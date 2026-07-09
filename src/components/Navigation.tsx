@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ListTodo, PenSquare, BookOpen, Sun, Moon, StickyNote } from 'lucide-react';
+import { Home, ListTodo, PenSquare, BookOpen, Sun, Moon, StickyNote, CalendarDays } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useTheme } from 'next-themes';
@@ -15,6 +15,7 @@ export function cn(...inputs: ClassValue[]) {
 
 const navItems = [
     { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Timeline', href: '/timeline', icon: CalendarDays },
     { name: 'CA Final Tracker', href: '/ca-tracker', icon: BookOpen },
     { name: 'Manage Topics', href: '/topics', icon: ListTodo },
     { name: 'Daily Log', href: '/log', icon: PenSquare },
