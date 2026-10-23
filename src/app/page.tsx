@@ -165,7 +165,7 @@ export default function Dashboard() {
     updateSubject(subjectId, { reminders: updatedRems });
   };
 
-  const EXAM_DATE = new Date(2026, 9, 1);
+  const EXAM_DATE = new Date(2027, 5, 1);
   const daysLeft = differenceInDays(EXAM_DATE, new Date());
   const QUOTES = [
     { q: "The exam doesn't know how hard you tried. It only cares what you can reproduce under pressure.", a: "CA Final Reality" },
